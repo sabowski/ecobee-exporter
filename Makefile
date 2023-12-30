@@ -1,7 +1,7 @@
 SHELL = /bin/bash
 
 default: build
-.PHONY: clean deps build run
+.PHONY: clean deps build build-image push-image run
 
 PLATFORM := $(shell uname -s)
 
@@ -17,6 +17,12 @@ build/ecobee-exporter: $(SRC)
 	go build -o build/ecobee-exporter ./main.go
 
 build: deps build/ecobee-exporter
+
+build-image:
+	docker build -t petewall/ecobee-exporter .
+
+push-image:
+	docker push petewall/ecobee-exporter
 
 run: build/ecobee-exporter
 	build/ecobee-exporter --debug --ecobeeClientId $(CLIENT_ID)
