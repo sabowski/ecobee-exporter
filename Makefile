@@ -25,4 +25,4 @@ push-image:
 	docker push petewall/ecobee-exporter
 
 run: build/ecobee-exporter
-	build/ecobee-exporter --debug --ecobeeClientId $(CLIENT_ID)
+	build/ecobee-exporter

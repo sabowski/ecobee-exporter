@@ -1,7 +1,7 @@
 /*
-Copyright © 2023 NAME HERE <EMAIL ADDRESS>
-
+Copyright © 2023 Pete Wall <pete@petewall.net>
 */
+
 package main
 
 import "ecobee-exporter/cmd"

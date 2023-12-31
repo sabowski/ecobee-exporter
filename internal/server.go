@@ -1,8 +1,13 @@
 package internal
 
+/*
+Copyright © 2023 Pete Wall <pete@petewall.net>
+*/
+
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -20,6 +25,7 @@ func (s *Server) Start() error {
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
+	r.Get("/metrics", promhttp.Handler().ServeHTTP)
 	r.Get("/humidities", func(w http.ResponseWriter, r *http.Request) {
 		payload := s.Gatherer.GetHumidities()
 		encoded, _ := json.Marshal(payload)

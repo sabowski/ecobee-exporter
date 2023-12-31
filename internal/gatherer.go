@@ -1,9 +1,16 @@
 package internal
 
+/*
+Copyright © 2023 Pete Wall <pete@petewall.net>
+*/
+
 import (
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"strconv"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rspier/go-ecobee/ecobee"
 	log "github.com/sirupsen/logrus"
 )
@@ -15,6 +22,12 @@ type Gatherer struct {
 	stopChannel      chan bool
 	runtimeRevisions map[string]string
 	thermostats      map[string]*ecobee.Thermostat
+	metrics          map[string]*SensorMetrics
+}
+
+type SensorMetrics struct {
+	temperature prometheus.Gauge
+	humidity    prometheus.Gauge
 }
 
 func NewGatherer(client *ecobee.Client) *Gatherer {
@@ -24,6 +37,7 @@ func NewGatherer(client *ecobee.Client) *Gatherer {
 		stopChannel:      make(chan bool),
 		runtimeRevisions: map[string]string{},
 		thermostats:      map[string]*ecobee.Thermostat{},
+		metrics:          map[string]*SensorMetrics{},
 	}
 }
 
@@ -92,7 +106,52 @@ func (g *Gatherer) updateThermostat(thermostatId string) error {
 	}
 
 	g.thermostats[thermostatId] = thermostat
+	g.updateMetrics(thermostat)
 	return nil
+}
+
+func (g *Gatherer) updateMetrics(thermostat *ecobee.Thermostat) {
+	for _, sensor := range thermostat.RemoteSensors {
+		for _, capability := range sensor.Capability {
+			if g.metrics[sensor.Name] == nil {
+				g.metrics[sensor.Name] = &SensorMetrics{}
+			}
+			if capability.Type == "temperature" && capability.Value != "" && capability.Value != "unknown" {
+				value, err := strconv.ParseFloat(capability.Value, 64)
+				if err != nil {
+					log.Warnf("failed to parse temperature value: \"%s\": %s", capability.Value, err.Error())
+				} else {
+					if g.metrics[sensor.Name].temperature == nil {
+						g.metrics[sensor.Name].temperature = promauto.NewGauge(prometheus.GaugeOpts{
+							Namespace:   "ecobee",
+							Subsystem:   "sensor",
+							Name:        "temperature_f",
+							Help:        "The temperature reported by an Ecobee sensor (in Fahrenheit)",
+							ConstLabels: prometheus.Labels{"name": sensor.Name, "type": sensor.Type},
+						})
+					}
+					g.metrics[sensor.Name].temperature.Set(value / 10)
+				}
+			}
+			if capability.Type == "humidity" && capability.Value != "" && capability.Value != "unknown" {
+				value, err := strconv.ParseFloat(capability.Value, 64)
+				if err != nil {
+					log.Warnf("failed to parse humidity value: \"%s\": %s", capability.Value, err.Error())
+				} else {
+					if g.metrics[sensor.Name].humidity == nil {
+						g.metrics[sensor.Name].humidity = promauto.NewGauge(prometheus.GaugeOpts{
+							Namespace:   "ecobee",
+							Subsystem:   "sensor",
+							Name:        "humidity",
+							Help:        "The humidity reported by an Ecobee sensor",
+							ConstLabels: prometheus.Labels{"name": sensor.Name, "type": sensor.Type},
+						})
+					}
+					g.metrics[sensor.Name].humidity.Set(value)
+				}
+			}
+		}
+	}
 }
 
 func (g *Gatherer) GetThermostats() []*ecobee.Thermostat {
