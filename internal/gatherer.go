@@ -26,8 +26,15 @@ type Gatherer struct {
 }
 
 type SensorMetrics struct {
-	temperature prometheus.Gauge
-	humidity    prometheus.Gauge
+	temperature              prometheus.Gauge
+	desiredCool              prometheus.Gauge
+	desiredHeat              prometheus.Gauge
+	humidity                 prometheus.Gauge
+	desiredHumidity          prometheus.Gauge
+	desiredDehumidity        prometheus.Gauge
+	airQuality               prometheus.Gauge
+	carbonDioxide            prometheus.Gauge
+	volatileOrganicCompounds prometheus.Gauge
 }
 
 func NewGatherer(client *ecobee.Client) *Gatherer {
@@ -111,6 +118,34 @@ func (g *Gatherer) updateThermostat(thermostatId string) error {
 }
 
 func (g *Gatherer) updateMetrics(thermostat *ecobee.Thermostat) {
+	if thermostat.Runtime.DesiredCool > 0 {
+		g.setDesiredCoolMetric(thermostat.Name, "thermostat", float64(thermostat.Runtime.DesiredCool))
+	}
+
+	if thermostat.Runtime.DesiredHeat > 0 {
+		g.setDesiredHeatMetric(thermostat.Name, "thermostat", float64(thermostat.Runtime.DesiredHeat))
+	}
+
+	if thermostat.Runtime.DesiredHumidity > 0 {
+		g.setDesiredHumidityMetric(thermostat.Name, "thermostat", float64(thermostat.Runtime.DesiredHumidity))
+	}
+
+	if thermostat.Runtime.DesiredDehumidity > 0 {
+		g.setDesiredDehumidityMetric(thermostat.Name, "thermostat", float64(thermostat.Runtime.DesiredDehumidity))
+	}
+
+	if thermostat.Runtime.ActualAQScore > 0 {
+		g.setAirQualityMetric(thermostat.Name, "thermostat", float64(thermostat.Runtime.ActualAQScore))
+	}
+
+	if thermostat.Runtime.ActualCO2 > 0 {
+		g.setCarbonDioxideMetric(thermostat.Name, "thermostat", float64(thermostat.Runtime.ActualAQScore))
+	}
+
+	if thermostat.Runtime.ActualVOC > 0 {
+		g.setVolatileOrganicCompoundsMetric(thermostat.Name, "thermostat", float64(thermostat.Runtime.ActualAQScore))
+	}
+
 	for _, sensor := range thermostat.RemoteSensors {
 		for _, capability := range sensor.Capability {
 			if g.metrics[sensor.Name] == nil {
@@ -121,16 +156,7 @@ func (g *Gatherer) updateMetrics(thermostat *ecobee.Thermostat) {
 				if err != nil {
 					log.Warnf("failed to parse temperature value: \"%s\": %s", capability.Value, err.Error())
 				} else {
-					if g.metrics[sensor.Name].temperature == nil {
-						g.metrics[sensor.Name].temperature = promauto.NewGauge(prometheus.GaugeOpts{
-							Namespace:   "ecobee",
-							Subsystem:   "sensor",
-							Name:        "temperature_f",
-							Help:        "The temperature reported by an Ecobee sensor (in Fahrenheit)",
-							ConstLabels: prometheus.Labels{"name": sensor.Name, "type": sensor.Type},
-						})
-					}
-					g.metrics[sensor.Name].temperature.Set(value / 10)
+					g.setTemperatureMetric(sensor.Name, sensor.Type, value)
 				}
 			}
 			if capability.Type == "humidity" && capability.Value != "" && capability.Value != "unknown" {
@@ -138,20 +164,155 @@ func (g *Gatherer) updateMetrics(thermostat *ecobee.Thermostat) {
 				if err != nil {
 					log.Warnf("failed to parse humidity value: \"%s\": %s", capability.Value, err.Error())
 				} else {
-					if g.metrics[sensor.Name].humidity == nil {
-						g.metrics[sensor.Name].humidity = promauto.NewGauge(prometheus.GaugeOpts{
-							Namespace:   "ecobee",
-							Subsystem:   "sensor",
-							Name:        "humidity",
-							Help:        "The humidity reported by an Ecobee sensor",
-							ConstLabels: prometheus.Labels{"name": sensor.Name, "type": sensor.Type},
-						})
-					}
-					g.metrics[sensor.Name].humidity.Set(value)
+					g.setHumidityMetric(sensor.Name, sensor.Type, value)
 				}
 			}
 		}
 	}
+}
+
+func (g *Gatherer) setAirQualityMetric(sensorName, sensorType string, value float64) {
+	if g.metrics[sensorName] == nil {
+		g.metrics[sensorName] = &SensorMetrics{}
+	}
+	if g.metrics[sensorName].airQuality == nil {
+		g.metrics[sensorName].airQuality = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace:   "ecobee",
+			Subsystem:   "sensor",
+			Name:        "air_quality",
+			Help:        "The air quality reported by an Ecobee sensor",
+			ConstLabels: prometheus.Labels{"name": sensorName, "type": sensorType},
+		})
+	}
+	g.metrics[sensorName].airQuality.Set(value)
+}
+
+func (g *Gatherer) setCarbonDioxideMetric(sensorName, sensorType string, value float64) {
+	if g.metrics[sensorName] == nil {
+		g.metrics[sensorName] = &SensorMetrics{}
+	}
+	if g.metrics[sensorName].carbonDioxide == nil {
+		g.metrics[sensorName].carbonDioxide = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace:   "ecobee",
+			Subsystem:   "sensor",
+			Name:        "co2",
+			Help:        "The amount of carbon dioxide reported by an Ecobee sensor",
+			ConstLabels: prometheus.Labels{"name": sensorName, "type": sensorType},
+		})
+	}
+	g.metrics[sensorName].carbonDioxide.Set(value)
+}
+
+func (g *Gatherer) setVolatileOrganicCompoundsMetric(sensorName, sensorType string, value float64) {
+	if g.metrics[sensorName] == nil {
+		g.metrics[sensorName] = &SensorMetrics{}
+	}
+	if g.metrics[sensorName].volatileOrganicCompounds == nil {
+		g.metrics[sensorName].volatileOrganicCompounds = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace:   "ecobee",
+			Subsystem:   "sensor",
+			Name:        "voc",
+			Help:        "The amount of volatile organic compounds reported by an Ecobee sensor",
+			ConstLabels: prometheus.Labels{"name": sensorName, "type": sensorType},
+		})
+	}
+	g.metrics[sensorName].volatileOrganicCompounds.Set(value)
+}
+
+func (g *Gatherer) setTemperatureMetric(sensorName, sensorType string, value float64) {
+	if g.metrics[sensorName] == nil {
+		g.metrics[sensorName] = &SensorMetrics{}
+	}
+	if g.metrics[sensorName].temperature == nil {
+		g.metrics[sensorName].temperature = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace:   "ecobee",
+			Subsystem:   "sensor",
+			Name:        "temperature_f",
+			Help:        "The temperature reported by an Ecobee sensor (in Fahrenheit)",
+			ConstLabels: prometheus.Labels{"name": sensorName, "type": sensorType},
+		})
+	}
+	g.metrics[sensorName].temperature.Set(value / 10)
+}
+
+func (g *Gatherer) setDesiredCoolMetric(sensorName, sensorType string, value float64) {
+	if g.metrics[sensorName] == nil {
+		g.metrics[sensorName] = &SensorMetrics{}
+	}
+	if g.metrics[sensorName].desiredCool == nil {
+		g.metrics[sensorName].desiredCool = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace:   "ecobee",
+			Subsystem:   "sensor",
+			Name:        "desired_cool_f",
+			Help:        "The desired temperature to cool to (in Fahrenheit)",
+			ConstLabels: prometheus.Labels{"name": sensorName, "type": sensorType},
+		})
+	}
+	g.metrics[sensorName].desiredCool.Set(value / 10)
+}
+
+func (g *Gatherer) setDesiredHeatMetric(sensorName, sensorType string, value float64) {
+	if g.metrics[sensorName] == nil {
+		g.metrics[sensorName] = &SensorMetrics{}
+	}
+	if g.metrics[sensorName].desiredHeat == nil {
+		g.metrics[sensorName].desiredHeat = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace:   "ecobee",
+			Subsystem:   "sensor",
+			Name:        "desired_heat_f",
+			Help:        "The desired temperature to heat to (in Fahrenheit)",
+			ConstLabels: prometheus.Labels{"name": sensorName, "type": sensorType},
+		})
+	}
+	g.metrics[sensorName].desiredHeat.Set(value / 10)
+}
+
+func (g *Gatherer) setHumidityMetric(sensorName, sensorType string, value float64) {
+	if g.metrics[sensorName] == nil {
+		g.metrics[sensorName] = &SensorMetrics{}
+	}
+	if g.metrics[sensorName].humidity == nil {
+		g.metrics[sensorName].humidity = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace:   "ecobee",
+			Subsystem:   "sensor",
+			Name:        "humidity",
+			Help:        "The humidity reported by an Ecobee sensor",
+			ConstLabels: prometheus.Labels{"name": sensorName, "type": sensorType},
+		})
+	}
+	g.metrics[sensorName].humidity.Set(value)
+}
+
+func (g *Gatherer) setDesiredHumidityMetric(sensorName, sensorType string, value float64) {
+	if g.metrics[sensorName] == nil {
+		g.metrics[sensorName] = &SensorMetrics{}
+	}
+	if g.metrics[sensorName].desiredHumidity == nil {
+		g.metrics[sensorName].desiredHumidity = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace:   "ecobee",
+			Subsystem:   "sensor",
+			Name:        "desired_humidity",
+			Help:        "The desired humidity level reported by an Ecobee sensor",
+			ConstLabels: prometheus.Labels{"name": sensorName, "type": sensorType},
+		})
+	}
+	g.metrics[sensorName].desiredHumidity.Set(value)
+}
+
+func (g *Gatherer) setDesiredDehumidityMetric(sensorName, sensorType string, value float64) {
+	if g.metrics[sensorName] == nil {
+		g.metrics[sensorName] = &SensorMetrics{}
+	}
+	if g.metrics[sensorName].desiredDehumidity == nil {
+		g.metrics[sensorName].desiredDehumidity = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace:   "ecobee",
+			Subsystem:   "sensor",
+			Name:        "desired_dehumidity",
+			Help:        "The desired dehumidity level reported by an Ecobee sensor",
+			ConstLabels: prometheus.Labels{"name": sensorName, "type": sensorType},
+		})
+	}
+	g.metrics[sensorName].desiredDehumidity.Set(value)
 }
 
 func (g *Gatherer) GetThermostats() []*ecobee.Thermostat {

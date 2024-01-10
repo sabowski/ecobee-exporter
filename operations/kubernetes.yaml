@@ -1,0 +1,39 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ecobee
+stringData:
+  clientId: abc
+  refreshToken: def
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecobee-exporter
+  labels:
+    app: ecobee-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ecobee-exporter
+  template:
+    metadata:
+      labels:
+        app: ecobee-exporter
+    spec:
+      containers:
+      - image: petewall/ecobee-exporter
+        name: ecobee-exporter
+        env:
+          - name: ECOBEE_CLIENTID
+            valueFrom:
+              secretKeyRef:
+                name: ecobee
+                key: clientId
+          - name: ECOBEE_REFRESHTOKEN
+            valueFrom:
+              secretKeyRef:
+                name: ecobee
+                key: refreshToken
