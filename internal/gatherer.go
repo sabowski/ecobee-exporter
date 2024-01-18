@@ -26,6 +26,7 @@ type Gatherer struct {
 }
 
 type SensorMetrics struct {
+	thermostatMode           *prometheus.GaugeVec
 	temperature              prometheus.Gauge
 	desiredCool              prometheus.Gauge
 	desiredHeat              prometheus.Gauge
@@ -146,6 +147,8 @@ func (g *Gatherer) updateMetrics(thermostat *ecobee.Thermostat) {
 		g.setVolatileOrganicCompoundsMetric(thermostat.Name, "thermostat", float64(thermostat.Runtime.ActualAQScore))
 	}
 
+	g.setThermostatModeMetric(thermostat.Name, "thermostat", thermostat.Events)
+
 	for _, sensor := range thermostat.RemoteSensors {
 		for _, capability := range sensor.Capability {
 			if g.metrics[sensor.Name] == nil {
@@ -169,6 +172,40 @@ func (g *Gatherer) updateMetrics(thermostat *ecobee.Thermostat) {
 			}
 		}
 	}
+}
+
+func (g *Gatherer) setThermostatModeMetric(sensorName, sensorType string, events []ecobee.Event) {
+	if g.metrics[sensorName] == nil {
+		g.metrics[sensorName] = &SensorMetrics{}
+	}
+	if g.metrics[sensorName].thermostatMode == nil {
+		g.metrics[sensorName].thermostatMode = promauto.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace:   "ecobee",
+			Subsystem:   "sensor",
+			Name:        "thermostat_mode",
+			Help:        "The current mode of the thermostat",
+			ConstLabels: prometheus.Labels{"name": sensorName, "type": sensorType},
+		}, []string{"mode", "running"})
+	}
+	running := false
+	mode := "off"
+
+	for _, event := range events {
+		if event.Running {
+			if !event.IsHeatOff && !event.IsCoolOff {
+				mode = "both"
+			} else if !event.IsHeatOff {
+				mode = "heat"
+			} else if !event.IsHeatOff {
+				mode = "cool"
+			}
+			running = true
+		}
+	}
+	g.metrics[sensorName].thermostatMode.With(prometheus.Labels{
+		"mode":    mode,
+		"running": strconv.FormatBool(running),
+	}).Set(1)
 }
 
 func (g *Gatherer) setAirQualityMetric(sensorName, sensorType string, value float64) {
