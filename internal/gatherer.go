@@ -6,9 +6,10 @@ Copyright © 2023 Pete Wall <pete@petewall.net>
 
 import (
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"strconv"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rspier/go-ecobee/ecobee"
@@ -140,11 +141,11 @@ func (g *Gatherer) updateMetrics(thermostat *ecobee.Thermostat) {
 	}
 
 	if thermostat.Runtime.ActualCO2 > 0 {
-		g.setCarbonDioxideMetric(thermostat.Name, "thermostat", float64(thermostat.Runtime.ActualAQScore))
+		g.setCarbonDioxideMetric(thermostat.Name, "thermostat", float64(thermostat.Runtime.ActualCO2))
 	}
 
 	if thermostat.Runtime.ActualVOC > 0 {
-		g.setVolatileOrganicCompoundsMetric(thermostat.Name, "thermostat", float64(thermostat.Runtime.ActualAQScore))
+		g.setVolatileOrganicCompoundsMetric(thermostat.Name, "thermostat", float64(thermostat.Runtime.ActualVOC))
 	}
 
 	g.setThermostatModeMetric(thermostat.Name, "thermostat", thermostat.Events)
@@ -196,7 +197,7 @@ func (g *Gatherer) setThermostatModeMetric(sensorName, sensorType string, events
 				mode = "both"
 			} else if !event.IsHeatOff {
 				mode = "heat"
-			} else if !event.IsHeatOff {
+			} else if event.IsHeatOff {
 				mode = "cool"
 			}
 			running = true

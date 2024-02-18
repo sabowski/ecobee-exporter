@@ -7,8 +7,9 @@ Copyright © 2023 Pete Wall <pete@petewall.net>
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -21,7 +22,7 @@ type Server struct {
 }
 
 func (s *Server) Start() error {
-	log.Info("Starting HTTP server...")
+	log.Infof("Starting HTTP server on port %d...", s.Port)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
