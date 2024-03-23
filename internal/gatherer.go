@@ -12,7 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rspier/go-ecobee/ecobee"
+	"github.com/sabowski/go-ecobee-kube/ecobee"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -37,6 +37,12 @@ type SensorMetrics struct {
 	airQuality               prometheus.Gauge
 	carbonDioxide            prometheus.Gauge
 	volatileOrganicCompounds prometheus.Gauge
+	occupancy                prometheus.Gauge
+	outdoorTemperature       prometheus.Gauge
+	windSpeed                prometheus.Gauge
+	outdoorTempHigh          prometheus.Gauge
+	outdoorTempLow           prometheus.Gauge
+	outdoorHumidity          prometheus.Gauge
 }
 
 func NewGatherer(client *ecobee.Client) *Gatherer {
@@ -150,6 +156,8 @@ func (g *Gatherer) updateMetrics(thermostat *ecobee.Thermostat) {
 
 	g.setThermostatModeMetric(thermostat.Name, "thermostat", thermostat.Events)
 
+	g.setWeatherMetrics(thermostat.Name, thermostat.Weather.Forecasts[0])
+
 	for _, sensor := range thermostat.RemoteSensors {
 		for _, capability := range sensor.Capability {
 			if g.metrics[sensor.Name] == nil {
@@ -170,6 +178,9 @@ func (g *Gatherer) updateMetrics(thermostat *ecobee.Thermostat) {
 				} else {
 					g.setHumidityMetric(sensor.Name, sensor.Type, value)
 				}
+			}
+			if capability.Type == "occupancy" && capability.Value != "" && capability.Value != "unknown" {
+				g.setOccupancyMetric(sensor.Name, sensor.Type, capability.Value)
 			}
 		}
 	}
@@ -351,6 +362,83 @@ func (g *Gatherer) setDesiredDehumidityMetric(sensorName, sensorType string, val
 		})
 	}
 	g.metrics[sensorName].desiredDehumidity.Set(value)
+}
+
+func (g *Gatherer) setWeatherMetrics(sensorName string, forecast ecobee.WeatherForecast) {
+	if g.metrics[sensorName] == nil {
+		g.metrics[sensorName] = &SensorMetrics{}
+	}
+	if g.metrics[sensorName].outdoorTemperature == nil {
+		g.metrics[sensorName].outdoorTemperature = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace: "ecobee",
+			Subsystem: "weather",
+			Name:      "outdoor_temp_f",
+			Help:      "The outdoor temp as reported by ecobee",
+		})
+	}
+	if g.metrics[sensorName].outdoorTempHigh == nil {
+		g.metrics[sensorName].outdoorTempHigh = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace: "ecobee",
+			Subsystem: "weather",
+			Name:      "outdoor_temp_high_f",
+			Help:      "The outdoor temp high for the day as reported by ecobee",
+		})
+	}
+	if g.metrics[sensorName].outdoorTempLow == nil {
+		g.metrics[sensorName].outdoorTempLow = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace: "ecobee",
+			Subsystem: "weather",
+			Name:      "outdoor_temp_low_f",
+			Help:      "The outdoor temp low for the day as reported by ecobee",
+		})
+	}
+	if g.metrics[sensorName].windSpeed == nil {
+		g.metrics[sensorName].windSpeed = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace: "ecobee",
+			Subsystem: "weather",
+			Name:      "wind_speed_mph",
+			Help:      "The outdoor wind speed as reported by ecobee",
+		})
+	}
+	if g.metrics[sensorName].outdoorHumidity == nil {
+		g.metrics[sensorName].outdoorHumidity = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace: "ecobee",
+			Subsystem: "weather",
+			Name:      "humidity",
+			Help:      "The outdoor relative humidity as reported by ecobee",
+		})
+	}
+	g.metrics[sensorName].outdoorTemperature.Set(float64(forecast.Temperature) / 10)
+	g.metrics[sensorName].outdoorTempHigh.Set(float64(forecast.TempHigh) / 10)
+	g.metrics[sensorName].outdoorTempLow.Set(float64(forecast.TempLow) / 10)
+	g.metrics[sensorName].windSpeed.Set(float64(forecast.WindSpeed))
+	g.metrics[sensorName].outdoorHumidity.Set(float64(forecast.RelativeHumidity))
+}
+
+func (g *Gatherer) setOccupancyMetric(sensorName, sensorType string, value string) {
+	if g.metrics[sensorName] == nil {
+		g.metrics[sensorName] = &SensorMetrics{}
+	}
+	if g.metrics[sensorName].occupancy == nil {
+		g.metrics[sensorName].occupancy = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace:   "ecobee",
+			Subsystem:   "sensor",
+			Name:        "occupancy",
+			Help:        "The occupancy reported by the sensor",
+			ConstLabels: prometheus.Labels{"name": sensorName, "type": sensorType},
+		})
+	}
+
+	var val_float float64
+	switch value {
+	case "true":
+		val_float = 1
+	case "false":
+		val_float = 0
+	default:
+		val_float = -1
+	}
+	g.metrics[sensorName].occupancy.Set(val_float)
 }
 
 func (g *Gatherer) GetThermostats() []*ecobee.Thermostat {
