@@ -19,10 +19,11 @@ jobs:
 
     steps:
       - name: Find package id and delete
-        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/head/main')
         run: |
-          tag_input=${{ inputs.tag }}
-          tag=${tag_input:-edge}
+          tag=${{ inputs.tag }}
+          if [ -z "${tag_input}" ]; then
+            tag=pr-${{ github.event.number }}
+          fi
 
           echo Retriving image with tag ${tag}
 
