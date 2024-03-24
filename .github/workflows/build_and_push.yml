@@ -17,12 +17,12 @@ jobs:
   delete-existing-pr-image:
     name: Delete existing PR image
     if: github.event_name == 'pull_request'
-    uses: sabowski/ecobee-exporter/.github/workflows/remove_pr_image.yml@main
+    uses: sabowski/ecobee-exporter/.github/workflows/remove_image.yml@main
 
   delete-existing-edge-image:
     name: Delete existing edge image
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    uses: sabowski/ecobee-exporter/.github/workflows/remove_pr_image.yml@main
+    uses: sabowski/ecobee-exporter/.github/workflows/remove_image.yml@main
     with:
       tag: edge
 
