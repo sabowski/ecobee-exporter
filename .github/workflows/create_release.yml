@@ -1,25 +1,21 @@
 name: Create release
 
 on:
-  workflow_dispatch:
   push:
     tags:
-      - "*"
-      # - "v*.*.*"
+      - "v*.*.*"
 
 
 jobs:
-  print-values:
+  create-release:
+    name: Create release
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout tag
+        uses: actions/checkout@v4
 
-      - name: base_ref value in push payload
-        run: |
-          echo ref is ${{ github.event.ref }}
-          echo base_ref is ${{ github.event.base_ref }}
-          echo Using head commit id...
-          git branch -a --contains ${{ github.event.head_commit.id }}
-          echo Using tag name
-          git branch -a --contains ${{ github.event.ref }}
+      - name: Create release from tag
+        uses: softprops/action-gh-release@9d7c94cfd0a1f3ed45544c887983e9fa900f0564 # v2.0.4
+        with:
+          generate_release_notes: true
