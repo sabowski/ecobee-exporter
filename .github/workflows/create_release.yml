@@ -17,4 +17,6 @@ jobs:
         run: |
           echo ref is ${{ github.event.ref }}
           echo base_ref is ${{ github.event.base_ref }}
+          echo the event is...
+          echo ${{ github.event }}
 
