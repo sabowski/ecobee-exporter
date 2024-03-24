@@ -9,7 +9,7 @@ on:
   workflow_call:
     inputs:
       tag:
-        required: true
+        required: false
         type: string 
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
       - name: Find package id and delete
         run: |
           tag=${{ inputs.tag }}
-          if [ -z "${tag_input}" ]; then
+          if [ -z "${tag}" ]; then
             tag=pr-${{ github.event.number }}
           fi
 

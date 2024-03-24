@@ -18,8 +18,6 @@ jobs:
     name: Delete existing PR image
     if: github.event_name == 'pull_request'
     uses: sabowski/ecobee-exporter/.github/workflows/remove_pr_image.yml@main
-    with:
-      tag: "pr-${{ github.event.number }}"
 
   delete-existing-edge-image:
     name: Delete existing edge image
