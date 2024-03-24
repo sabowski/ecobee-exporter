@@ -7,24 +7,31 @@ on:
     types:
       - closed
   workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string 
 
 jobs:
-  remove_pr_image:
-    name: Remove PR image
+  remove_image:
+    name: Remove image
     runs-on: ubuntu-latest
 
     steps:
-      - name: Delete package
-        if: github.event_name == 'pull_request'
+      - name: Find package id and delete
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/head/main')
         run: |
-          echo Retriving image with tag pr-${{ github.event.number }}
+          tag_input=${{ inputs.tag }}
+          tag=${tag_input:-edge}
+
+          echo Retriving image with tag ${tag}
 
           package_id=$(curl -L -s \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/users/sabowski/packages/container/ecobee-exporter/versions \
-            | jq -r '.[] | select(.metadata.container.tags | index("pr-${{ github.event.number }}")) | .id')
+            | jq -r --arg tag "$tag" '.[] | select(.metadata.container.tags | index($tag)) | .id')
           
           echo package id is ${package_id:-not found}
 
