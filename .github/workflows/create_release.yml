@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: base_ref value in push payload
         run: |
           echo ref is ${{ github.event.ref }}
