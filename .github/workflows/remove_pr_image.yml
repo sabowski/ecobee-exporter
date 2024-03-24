@@ -15,7 +15,6 @@ jobs:
 
     steps:
       - name: Delete package
-        if: github.event_name == 'pull_request'
         run: |
           echo Retriving image with tag pr-${{ github.event.number }}
 

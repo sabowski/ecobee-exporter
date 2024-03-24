@@ -16,6 +16,7 @@ on:
 jobs:
   delete-existing-pr-image:
     name: Delete existing PR image
+    if: github.event_name == 'pull_request'
     uses: sabowski/ecobee-exporter/.github/workflows/remove_pr_image.yml@main
 
   build-and-push-image:
