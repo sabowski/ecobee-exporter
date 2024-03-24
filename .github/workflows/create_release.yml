@@ -1,0 +1,20 @@
+name: Create release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "*"
+      # - "v*.*.*"
+
+
+jobs:
+  print-values:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: base_ref value in push payload
+        run: |
+          echo ref is ${{ github.event.ref }}
+          echo base_ref is ${{ github.event.base_ref }}
+
