@@ -10,7 +10,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/rspier/go-ecobee/ecobee"
+	"github.com/sabowski/go-ecobee-kube/ecobee"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -30,7 +30,7 @@ func startServer(cmd *cobra.Command, args []string) error {
 	log.Info("Welcome to Ecobee Exporter!")
 
 	log.Info("Creating Ecobee client...")
-	client, err := createRefreshingEcobeeClient(viper.GetString("ecobee.clientid"), viper.GetString("auth.token-file"))
+	client, err := createRefreshingEcobeeClient(viper.GetString("ecobee.clientid"), viper.GetString("auth.token-secret"))
 	if err != nil {
 		return err
 	}
@@ -73,8 +73,8 @@ func init() {
 	rootCmd.Flags().String("ecobeeClientId", "", "Ecobee Client ID (ECOBEE_CLIENTID)")
 	_ = viper.BindPFlag("ecobee.clientid", rootCmd.Flags().Lookup("ecobeeClientId"))
 
-	rootCmd.Flags().String("auth-token-file", "auth-cache.json", "File that contains the OAuth token (AUTH_TOKEN_FILE)")
-	_ = viper.BindPFlag("auth.token-file", rootCmd.Flags().Lookup("auth-token-file"))
+	rootCmd.Flags().String("auth-token-secret", "ecobee-token", "File that contains the OAuth token (AUTH_TOKEN-SECRET)")
+	_ = viper.BindPFlag("auth.token-secret", rootCmd.Flags().Lookup("auth-token-secret"))
 
 	rootCmd.Flags().Bool("debug", false, "Enable debug logging (env: DEBUG)")
 	_ = viper.BindPFlag("debug", rootCmd.Flags().Lookup("debug"))
