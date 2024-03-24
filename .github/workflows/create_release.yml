@@ -17,6 +17,7 @@ jobs:
         run: |
           echo ref is ${{ github.event.ref }}
           echo base_ref is ${{ github.event.base_ref }}
-          echo the event is...
-          echo ${{ toJson(github) }}
-
+          echo Using head commit id...
+          git branch -a --contains ${{ github.event.head_commit.id }}
+          echo Using tag name
+          git branch -a --contains ${{ github.event.ref }}
