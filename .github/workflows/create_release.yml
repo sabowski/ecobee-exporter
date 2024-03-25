@@ -19,3 +19,54 @@ jobs:
         uses: softprops/action-gh-release@9d7c94cfd0a1f3ed45544c887983e9fa900f0564 # v2.0.4
         with:
           generate_release_notes: true
+
+  tag-image:
+    name: Add tag to container image
+    runs-on: ubuntu-latest
+    needs: create-release
+
+    steps:
+      - name: Log into ghcr
+        uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+            
+      - name: Tag image with release tag
+        run: |
+          echo Getting image manifest for tag sha-${{ github.sha }}
+          MANIFEST=$(curl \
+                      -H "Authorization: Bearer $(echo ${{ GITHUB_TOKEN }} | base64)" \
+                      -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
+                      https://ghcr.io/v2/sabowski/ecobee-exporter/manifests/sha-${{ github.sha }})
+
+          echo Adding tag ${{ github.ref_name }} to image
+          curl -X PUT \
+            -H "Authorization: Bearer $(echo ${{ GITHUB_TOKEN }} | base64)" \
+            -H "content-type: application/vnd.docker.distribution.manifest.v2+json" \
+            -d "${MANIFEST}" \
+            https://ghcr.io/v2/sabowski/ecobee-exporter/manifests/${{ github.ref_name }}
+
+      - name: Prune images
+        run: |
+          echo Getting all package versions
+          versions=$(curl -L -s \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/users/sabowski/packages/container/ecobee-exporter/versions)
+
+          echo Getting date of image tagged ${{ github.ref_name }}
+          datestring=$(echo $versions | jq --arg tag "${{ github.ref_name }}" -r '.[] | select(.metadata.container.tags[] | match($tag)) | .created_at')
+          unixdate=$(date -d "${datestring}" +"%s")
+          echo Date is $datestring ($unixdate)
+
+          echo Getting images older than ${datestring} that have 0 or 1 tag
+          olderthan=$(echo $versions | jq -r --arg unixdate "${unixdate}" '.[] | select(.created_at | fromdateiso8601 < $unixdate) | select (.metadata.container.tags | length < 2)')
+
+          echo Images with sha-* tags I would delete...
+          echo $olderthan | jq -r 'select(.metadata.container.tags[] | match("sha-*")) | .id'
+
+          echo Tagless images I would delete...
+          echo $olderthan | jq -r 'select(.metadata.container.tags == []) | .id'
