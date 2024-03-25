@@ -19,3 +19,22 @@ jobs:
         uses: softprops/action-gh-release@9d7c94cfd0a1f3ed45544c887983e9fa900f0564 # v2.0.4
         with:
           generate_release_notes: true
+
+  tag-image:
+    name: Add tag to container image
+    runs-on: ubuntu-latest
+    needs: create-release
+
+    steps:
+      - name: Log into ghcr
+        uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+            
+      - name: Tag image
+        run: |
+          docker pull ghcr.io/sabowski/ecobee-exporter:sha-${{ github.sha }}
+          docker tag ghcr.io/sabowski/ecobee-exporter:sha-${{ github.sha }} ghcr.io/sabowski/ecobee-exporter:${{ github.ref_name }}
+          docker push ghcr.io/sabowski/ecobee-exporter:${{ github.ref_name }}
