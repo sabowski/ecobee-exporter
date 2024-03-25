@@ -62,7 +62,7 @@ jobs:
           echo Getting date of image tagged ${{ github.ref_name }}
           datestring=$(echo $versions | jq --arg tag "${{ github.ref_name }}" -r '.[] | select(.metadata.container.tags[] | match($tag)) | .created_at')
           unixdate=$(date -d "${datestring}" +"%s")
-          echo Date is $datestring ($unixdate)
+          echo "Date is $datestring ($unixdate)"
 
           echo Getting images older than ${datestring} that have 0 or 1 tag
           olderthan=$(echo $versions | jq -r --arg unixdate "${unixdate}" '.[] | select(.created_at | fromdateiso8601 < $unixdate) | select (.metadata.container.tags | length < 2)')
