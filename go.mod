@@ -4,7 +4,7 @@ go 1.22.1
 
 require (
 	github.com/go-chi/chi/v5 v5.0.12
-	github.com/prometheus/client_golang v1.19.0
+	github.com/prometheus/client_golang v1.19.1
 	github.com/sabowski/go-ecobee-kube v1.0.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
